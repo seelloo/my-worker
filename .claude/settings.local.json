@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"& ''D:\\\\claude_project\\\\.venv\\\\Scripts\\\\Activate.ps1''; python -c \"\"import py_compile; py_compile.compile\\(''app.py'', doraise=True\\); print\\(''OK''\\)\"\"\")",
+      "Bash(powershell -Command \"& ''D:\\\\claude_project\\\\.venv\\\\Scripts\\\\Activate.ps1''; python app.py\")",
+      "Bash(powershell -Command \"& ''D:\\\\claude_project\\\\.venv\\\\Scripts\\\\Activate.ps1''; Start-Process -NoNewWindow -PassThru -FilePath python -ArgumentList ''app.py''; Start-Sleep 3; Get-Process -Name python -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"& ''D:\\\\claude_project\\\\.venv\\\\Scripts\\\\Activate.ps1''; python -m pip install pyyaml -q\")",
+      "Bash(powershell -Command \"Get-Process -Name python -ErrorAction SilentlyContinue | Stop-Process -Force\" 2>&1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5000/workflows)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5000/workflow/editor)",
+      "Bash(python *)",
+      "Bash(../.venv/Scripts/python.exe *)",
+      "Bash(set ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force)",
+      "Bash(export ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force)",
+      "Bash(cmd *)",
+      "Bash(D:/claude_project/.venv/Scripts/python *)",
+      "Bash(curl -s http://127.0.0.1:5000/api/task_list)",
+      "Bash(curl *)",
+      "Bash(D:/claude_project/.venv/Scripts/python.exe *)",
+      "Bash(D:/claude_project/.venv/Scripts/pip.exe show *)",
+      "Bash(D:/claude_project/.venv/Scripts/pip.exe install *)"
+    ]
+  }
+}

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Engine Server v3.0 — 数据员工</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='3.0') }}">
+</head>
+<body>
+    <div class="layout">
+        <!-- 侧边栏 (Dark Theme) -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">69</div>
+                <div class="sidebar-brand">
+                    <h1>反重力</h1>
+                    <span>核心系统</span>
+                </div>
+            </div>
+            
+            <!-- 动态导航栏 -->
+            <div class="menu-container" id="sidebar-nav"></div>
+            
+            <div class="sidebar-footer">
+                <div class="progress-text">
+                    <span id="sys-status-label">当前负载</span>
+                    <strong id="sys-status-text">CPU: --% | 内存: --%</strong>
+                </div>
+                <div class="progress-bar-bg" style="margin-bottom: 6px;" title="CPU">
+                    <div class="progress-bar-fill" id="cpu-bar-fill" style="width: 0%; background: #4f46e5;"></div>
+                </div>
+                <div class="progress-bar-bg" title="内存">
+                    <div class="progress-bar-fill" id="mem-bar-fill" style="width: 0%; background: #059669;"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 (Light Theme) -->
+        <main class="content-area">
+            <!-- 顶部头 -->
+            <header class="main-header">
+                <div class="header-left">
+                    <div class="breadcrumbs">工作空间 / <span id="current-breadcrumb">首页大盘</span></div>
+                    <h2><span id="header-title-main">首页大盘</span> <span id="header-title-sub">Dashboard</span></h2>
+                </div>
+                <div class="header-right">
+                    欢迎回来，今日系统运行状态极佳。
+                </div>
+            </header>
+
+            <div class="dashboard-scroll">
+                
+                <!-- 首页大盘 Panel -->
+                <div id="panel-dashboard" class="dashboard-panel active">
+                    <!-- 顶部数据卡片 -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <span class="stat-title">功能总数</span>
+                                <span class="stat-value blue" id="stat-total-tasks">-</span>
+                                <span class="stat-badge green">+12.5% 较昨日</span>
+                            </div>
+                            <div class="stat-icon blue">📊</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <span class="stat-title">定时任务总数</span>
+                                <span class="stat-value orange" id="stat-total-schedules">-</span>
+                                <span class="stat-badge green">+18.2% 较昨日</span>
+                            </div>
+                            <div class="stat-icon orange">⏰</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info" id="clock-container">
+                                <span class="stat-title" id="clock-date">加载中...</span>
+                                <span class="stat-value purple" id="clock-time">--:--</span>
+                                <span class="stat-badge purple" id="clock-day">稳定 系统监控中</span>
+                            </div>
+                            <div class="stat-icon purple">⏱️</div>
+                        </div>
+                    </div>
+
+                    <!-- 底部详情 -->
+                    <div class="dashboard-bottom">
+                        <!-- 实时动态列表 -->
+                        <div class="card-panel">
+                            <div class="card-header">
+                                <h3>⚡ 实时动态</h3>
+                                <a id="btn-refresh-dashboard">刷新记录</a>
+                            </div>
+                            <ul class="activity-list" id="dashboard-activity-list">
+                                <li class="activity-item">
+                                    <div class="activity-dot"></div>
+                                    <div class="activity-content">数据加载中...</div>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- 快速开始面板 -->
+                        <div class="quick-start-card">
+                            <div class="quick-icon">🤖</div>
+                            <h3>快速开始</h3>
+                            <p>点击下方按钮即刻开启新一轮的系统性能扫描与节点同步优化。</p>
+                            <button class="btn-white" onclick="document.querySelector('[data-panel=\\'tasks\\']').click()">立即运行</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 任务表单 Panel -->
+                <div id="panel-tasks" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2 id="task-panel-title">🛠️ 选择一个任务</h2>
+                        <p id="task-panel-desc">从左侧菜单选择任务以开始</p>
+                    </div>
+                    <div id="task-form-container"></div>
+                </div>
+
+                <!-- Queue Panel -->
+                <div id="panel-queue" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>📬 任务队列</h2>
+                        <p>批量任务提交、FIFO 队列处理、实时状态跟踪</p>
+                    </div>
+                    <div id="queue-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Schedules Panel -->
+                <div id="panel-schedules" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>⏰ 定时任务</h2>
+                        <p>创建和管理 Cron 定时任务与间隔执行任务</p>
+                    </div>
+                    <div id="schedules-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Logs Panel -->
+                <div id="panel-logs" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>📜 操作日志</h2>
+                        <p>查看历史任务执行记录与结果预览</p>
+                    </div>
+                    <div id="logs-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- DB Connections Panel -->
+                <div id="panel-db-connections" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>🔌 数据库连接管理</h2>
+                        <p>管理已保存的 MySQL 数据库连接配置</p>
+                    </div>
+                    <div id="db-connections-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- GitHub Trending Panel -->
+                <div id="panel-github" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>🔥 GitHub Trending</h2>
+                        <p>基于 GitHub Search API，按 Stars 增长排序的热门开源项目</p>
+                    </div>
+                    <div id="github-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Console -->
+                <div class="console-wrapper">
+                    <div class="console-header">
+                        <div class="mac-dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+                        <span class="console-title">Execution Logs</span>
+                        <button id="clear-log" class="btn-icon">🧹 清空</button>
+                    </div>
+                    <pre id="console-output" class="console-output"><code>等待命令执行...</code></pre>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js', v='3.0') }}"></script>
+</body>
+</html>

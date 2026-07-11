@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作流编辑器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        :root { --wp: #8b5cf6; --ws: #10b981; --wd: #ef4444; --ww: #f59e0b; --wi: #3b82f6; --wc: #ec4899; }
+        * { box-sizing: border-box; }
+        body { margin:0; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text-light); overflow:hidden; height:100vh; }
+        .layout { display:flex; flex-direction:column; height:100vh; }
+        .editor-header { display:flex; justify-content:space-between; align-items:center; padding:12px 20px; background:var(--card-bg); border-bottom:1px solid var(--panel-border); }
+        .editor-header .logo { display:flex; align-items:center; gap:8px; }
+        .editor-header .logo h1 { font-size:1.2rem; margin:0; }
+        .header-actions { display:flex; gap:8px; }
+        .header-btn { padding:8px 16px; border-radius:8px; border:none; cursor:pointer; font-size:0.85rem; font-weight:500; background:var(--panel-border); color:var(--text-light); }
+        .header-btn:hover { opacity:0.85; }
+        .header-btn.save { background:var(--wi); color:#fff; }
+        .header-btn.run { background:var(--ws); color:#fff; }
+        .header-btn.export { background:var(--wp); color:#fff; }
+        .header-btn.import { background:var(--ww); color:#fff; }
+        .header-btn.back { background:transparent; color:var(--text-muted); border:1px solid var(--panel-border); text-decoration:none; }
+        .editor-body { display:flex; flex:1; overflow:hidden; }
+        /* Left palette */
+        .palette { width:240px; min-width:240px; background:var(--card-bg); border-right:1px solid var(--panel-border); display:flex; flex-direction:column; }
+        .palette-header { padding:16px; border-bottom:1px solid var(--panel-border); font-weight:600; font-size:0.9rem; }
+        .palette-search { padding:8px 12px; }
+        .palette-search input { width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--panel-border); background:rgba(0,0,0,0.15); color:var(--text-light); font-size:0.8rem; }
+        .palette-list { flex:1; overflow-y:auto; padding:8px; }
+        .palette-group { margin-bottom:12px; }
+        .palette-group-title { font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; padding:4px 8px; margin-bottom:4px; }
+        .palette-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; cursor:grab; font-size:0.82rem; border:1px solid transparent; transition:all 0.15s; }
+        .palette-item:hover { background:rgba(139,92,246,0.1); border-color:var(--wp); }
+        .palette-item:active { cursor:grabbing; }
+        .palette-item .icon { font-size:1rem; }
+        /* Canvas */
+        .canvas-wrap { flex:1; position:relative; overflow:hidden; background: radial-gradient(circle at 20% 30%, rgba(139,92,246,0.03) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(16,185,129,0.03) 0%, transparent 50%); }
+        .canvas-grid { position:absolute; inset:0; background-image: radial-gradient(circle, var(--panel-border) 1px, transparent 1px); background-size:24px 24px; opacity:0.3; }
+        .canvas { position:absolute; inset:0; }
+        .canvas-svg { position:absolute; inset:0; pointer-events:none; width:100%; height:100%; }
+        .canvas-svg line, .canvas-svg path { stroke:var(--panel-border); stroke-width:2; fill:none; }
+        .canvas-svg line.active, .canvas-svg path.active { stroke:var(--wp); stroke-width:2.5; }
+        /* Nodes */
+        .wf-node { position:absolute; width:200px; background:var(--card-bg); border:2px solid var(--panel-border); border-radius:10px; cursor:move; user-select:none; z-index:10; transition:box-shadow 0.15s; }
+        .wf-node:hover { box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+        .wf-node.selected { border-color:var(--wp); box-shadow:0 0 0 3px rgba(139,92,246,0.2); }
+        .wf-node.dragging { opacity:0.7; z-index:100; }
+        .wf-node-header { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--panel-border); border-radius:8px 8px 0 0; }
+        .wf-node-header .node-label { font-size:0.82rem; font-weight:600; display:flex; align-items:center; gap:6px; }
+        .wf-node-header .node-remove { cursor:pointer; opacity:0.4; font-size:0.8rem; padding:2px 6px; border-radius:4px; border:none; background:transparent; color:var(--text-light); }
+        .wf-node-header .node-remove:hover { opacity:1; background:rgba(239,68,68,0.2); color:var(--wd); }
+        .wf-node-body { padding:8px 12px; font-size:0.75rem; color:var(--text-muted); }
+        .wf-node-body .param-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+        .wf-node-footer { padding:6px 12px; border-top:1px solid var(--panel-border); font-size:0.7rem; color:var(--text-muted); display:flex; justify-content:space-between; }
+        .node-type-badge { font-size:0.65rem; padding:2px 8px; border-radius:10px; }
+        .node-type-sequential { background:rgba(59,130,246,0.15); color:var(--wi); }
+        .node-type-parallel { background:rgba(16,185,129,0.15); color:var(--ws); }
+        .node-type-conditional { background:rgba(245,158,11,0.15); color:var(--ww); }
+        .node-type-loop { background:rgba(236,72,153,0.15); color:var(--wc); }
+        /* Connector dots */
+        .connector { position:absolute; width:14px; height:14px; border-radius:50%; background:var(--card-bg); border:2px solid var(--panel-border); cursor:crosshair; z-index:15; transition:all 0.15s; }
+        .connector:hover, .connector.active { border-color:var(--wp); background:var(--wp); transform:scale(1.2); }
+        .connector.output { bottom:-7px; left:50%; margin-left:-7px; }
+        .connector.input { top:-7px; left:50%; margin-left:-7px; }
+        .connector.cond-true { bottom:-7px; left:25%; margin-left:-7px; border-color:var(--ws); }
+        .connector.cond-true:hover { background:var(--ws); }
+        .connector.cond-false { bottom:-7px; left:75%; margin-left:-7px; border-color:var(--wd); }
+        .connector.cond-false:hover { background:var(--wd); }
+        /* Right properties panel */
+        .props-panel { width:300px; min-width:300px; background:var(--card-bg); border-left:1px solid var(--panel-border); display:flex; flex-direction:column; overflow:hidden; }
+        .props-header { padding:16px; border-bottom:1px solid var(--panel-border); font-weight:600; font-size:0.9rem; }
+        .props-body { flex:1; overflow-y:auto; padding:16px; }
+        .props-body .form-group { margin-bottom:14px; }
+        .props-body label { display:block; font-size:0.8rem; margin-bottom:4px; color:var(--text-muted); }
+        .props-body input, .props-body select, .props-body textarea { width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--panel-border); background:rgba(0,0,0,0.1); color:var(--text-light); font-size:0.82rem; }
+        .props-body textarea { min-height:60px; resize:vertical; }
+        .props-body .empty-state { text-align:center; padding:40px 10px; color:var(--text-muted); font-size:0.85rem; }
+        .props-body .empty-state .big-icon { font-size:2.5rem; margin-bottom:12px; }
+        .props-body .condition-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+        .props-body .condition-row input { flex:1; }
+        .props-body .condition-row select { width:auto; }
+        .props-body .add-btn { background:transparent; border:1px dashed var(--panel-border); color:var(--text-muted); padding:6px; border-radius:6px; cursor:pointer; width:100%; font-size:0.8rem; }
+        .props-body .add-btn:hover { border-color:var(--wp); color:var(--wp); }
+        /* Toast */
+        .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); padding:12px 24px; border-radius:8px; color:#fff; font-size:0.85rem; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; }
+        .toast.show { opacity:1; }
+        .toast.success { background:var(--ws); }
+        .toast.error { background:var(--wd); }
+        .toast.info { background:var(--wi); }
+        /* Modal for JSON import */
+        .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; }
+        .modal-c { background:var(--card-bg); border-radius:12px; padding:24px; min-width:500px; max-width:700px; max-height:80vh; border:1px solid var(--panel-border); }
+        .modal-c h3 { margin:0 0 16px; }
+        .modal-c textarea { width:100%; min-height:300px; padding:10px; border-radius:8px; border:1px solid var(--panel-border); background:rgba(0,0,0,0.1); color:var(--text-light); font-family:monospace; font-size:0.82rem; box-sizing:border-box; }
+        .modal-actions { display:flex; gap:12px; justify-content:flex-end; margin-top:16px; }
+        .modal-c input { width:100%; padding:10px; margin-bottom:12px; border-radius:8px; border:1px solid var(--panel-border); background:rgba(0,0,0,0.1); color:var(--text-light); box-sizing:border-box; }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--panel-border); border-radius:3px; }
+        /* Mini map */
+        .minimap { position:absolute; bottom:16px; right:16px; width:160px; height:100px; background:rgba(0,0,0,0.4); border:1px solid var(--panel-border); border-radius:6px; z-index:50; overflow:hidden; pointer-events:none; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div class="editor-header">
+        <div class="logo"><span class="icon">🔄</span><h1 id="editor-title">新建工作流</h1></div>
+        <div class="header-actions">
+            <a href="/workflows" class="header-btn back">⬅ 返回</a>
+            <button class="header-btn import" onclick="showImport()">📂 导入</button>
+            <button class="header-btn export" onclick="exportJSON()">📤 导出</button>
+            <button class="header-btn save" onclick="saveWorkflow()">💾 保存</button>
+            <button class="header-btn run" onclick="runWorkflow()">▶ 执行</button>
+        </div>
+    </div>
+    <div class="editor-body">
+        <!-- Left: Task Palette -->
+        <div class="palette">
+            <div class="palette-header">任务列表</div>
+            <div class="palette-search"><input type="text" id="palette-search" placeholder="搜索任务..." oninput="filterPalette(this.value)"></div>
+            <div class="palette-list" id="palette-list"></div>
+        </div>
+        <!-- Center: Canvas -->
+        <div class="canvas-wrap" id="canvas-wrap">
+            <div class="canvas-grid"></div>
+            <svg class="canvas-svg" id="canvas-svg"></svg>
+            <div class="canvas" id="canvas"></div>
+        </div>
+        <!-- Right: Properties -->
+        <div class="props-panel">
+            <div class="props-header">属性配置</div>
+            <div class="props-body" id="props-body">
+                <div class="empty-state">
+                    <div class="big-icon">👈</div>
+                    <div>从左侧拖入任务到画布，<br>或点击节点编辑属性</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Import Modal -->
+<div class="modal-bg" id="modal-import" style="display:none;">
+    <div class="modal-c">
+        <h3>导入工作流配置</h3>
+        <textarea id="import-json" placeholder="粘贴 JSON 配置..."></textarea>
+        <div class="modal-actions">
+            <button style="background:transparent;color:var(--text-muted);border:1px solid var(--panel-border);padding:8px 20px;border-radius:8px;cursor:pointer;" onclick="document.getElementById('modal-import').style.display='none'">取消</button>
+            <button style="background:var(--wp);color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;" onclick="importJSON()">导入</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── State ──────────────────────────────────────────────────────────────────
+const API = '/api/workflows';
+const TASKS_API = '/api/workflows/tasks';
+let nodes = [];
+let edges = [];
+let nextNodeId = 1;
+let selectedNodeId = null;
+let wfId = null;
+let taskRegistry = {};
+let taskCategories = {};
+let isDragging = false;
+let dragTarget = null;
+let dragOffsetX = 0, dragOffsetY = 0;
+let connectingFrom = null;
+let canvasOffset = { x: 0, y: 0 };
+let isPanning = false;
+let panStart = null;
+
+// ─── Load Task Registry ────────────────────────────────────────────────────
+async function loadTaskRegistry() {
+    try {
+        const r = await fetch(TASKS_API);
+        const d = await r.json();
+        if (d.status !== 'success') return;
+        taskCategories = {};
+        d.tasks.forEach(t => {
+            if (!taskCategories[t.category]) taskCategories[t.category] = [];
+            taskCategories[t.category].push(t);
+            taskRegistry[t.id] = t;
+        });
+        renderPalette();
+    } catch(e) { console.error('加载任务列表失败:', e); }
+}
+
+const CATEGORY_ICONS = { archive:'📦', processing:'⚙️', extraction:'📄', workflow:'🔄' };
+
+function renderPalette(filter) {
+    const el = document.getElementById('palette-list');
+    let html = '';
+    for (const [cat, tasks] of Object.entries(taskCategories)) {
+        const filtered = filter ? tasks.filter(t => t.name.includes(filter) || t.id.includes(filter)) : tasks;
+        if (!filtered.length) continue;
+        html += `<div class="palette-group"><div class="palette-group-title">${CATEGORY_ICONS[cat]||'📋'} ${cat}</div>`;
+        filtered.forEach(t => {
+            html += `<div class="palette-item" draggable="true" data-task-id="${t.id}" title="${t.description||''}">
+                <span class="icon">${t.name.match(/^.{1,2}/)?.[0]||'📋'}</span>
+                <span>${t.name.replace(/^.{1,2}\s*/,'')}</span>
+            </div>`;
+        });
+        html += '</div>';
+    }
+    el.innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.85rem">无匹配任务</div>';
+
+    // Drag events
+    el.querySelectorAll('.palette-item').forEach(item => {
+        item.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', item.dataset.taskId);
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+    });
+}
+
+function filterPalette(val) { renderPalette(val); }
+
+// ─── Canvas Node Management ────────────────────────────────────────────────
+function createNode(taskId, x, y) {
+    const task = taskRegistry[taskId];
+    if (!task) return null;
+    const id = 'node-' + (nextNodeId++);
+    const node = {
+        id, taskId,
+        label: task.name.replace(/^.{1,2}\s*/,'') || taskId,
+        x, y,
+        type: 'sequential', // default
+        params: {},
+        conditions: [],
+        loopConfig: { count: 1 }
+    };
+    // Initialize default params
+    (task.params || []).forEach(p => {
+        node.params[p.id] = p.default || '';
+    });
+    nodes.push(node);
+    renderCanvas();
+    selectNode(id);
+    return node;
+}
+
+function removeNode(id) {
+    nodes = nodes.filter(n => n.id !== id);
+    edges = edges.filter(e => e.from !== id && e.to !== id);
+    if (selectedNodeId === id) { selectedNodeId = null; renderProps(); }
+    renderCanvas();
+}
+
+function selectNode(id) {
+    selectedNodeId = id;
+    renderCanvas();
+    renderProps();
+}
+
+function getNodeEl(id) {
+    return document.getElementById(id);
+}
+
+// ─── Edge management ──────────────────────────────────────────────────────
+function startConnecting(fromId, type) {
+    connectingFrom = { id: fromId, type };
+    document.body.style.cursor = 'crosshair';
+}
+
+// ─── Canvas Rendering ─────────────────────────────────────────────────────
+function renderCanvas() {
+    const canvas = document.getElementById('canvas');
+    const svg = document.getElementById('canvas-svg');
+
+    // Render nodes
+    canvas.innerHTML = '';
+    nodes.forEach(n => {
+        const div = document.createElement('div');
+        div.className = 'wf-node' + (n.id === selectedNodeId ? ' selected' : '');
+        div.id = n.id;
+        div.style.left = n.x + 'px';
+        div.style.top = n.y + 'px';
+
+        const typeLabels = { sequential:'顺序', parallel:'并行', conditional:'条件', loop:'循环' };
+        const typeClasses = { sequential:'node-type-sequential', parallel:'node-type-parallel', conditional:'node-type-conditional', loop:'node-type-loop' };
+
+        div.innerHTML = `
+            <div class="wf-node-header">
+                <span class="node-label"><span>${n.label}</span></span>
+                <button class="node-remove" onclick="event.stopPropagation();removeNode('${n.id}')">✕</button>
+            </div>
+            <div class="wf-node-body">
+                <div class="param-row"><span>任务: ${n.taskId}</span></div>
+                <div class="param-row"><span>类型: <span class="node-type-badge ${typeClasses[n.type]}">${typeLabels[n.type]||n.type}</span></span></div>
+            </div>
+            <div class="wf-node-footer">
+                <span>⬡ ${n.id}</span>
+                <span>${Object.keys(n.params).filter(k=>n.params[k]).length} 参数</span>
+            </div>
+        `;
+
+        // Connectors
+        const connOut = document.createElement('div');
+        connOut.className = 'connector output';
+        connOut.title = '连接下一节点';
+        connOut.addEventListener('mousedown', e => { e.stopPropagation(); startConnecting(n.id, 'output'); });
+        div.appendChild(connOut);
+
+        if (n.type === 'conditional') {
+            const connTrue = document.createElement('div');
+            connTrue.className = 'connector cond-true';
+            connTrue.title = '条件为真';
+            connTrue.addEventListener('mousedown', e => { e.stopPropagation(); startConnecting(n.id, 'cond-true'); });
+            div.appendChild(connTrue);
+
+            const connFalse = document.createElement('div');
+            connFalse.className = 'connector cond-false';
+            connFalse.title = '条件为假';
+            connFalse.addEventListener('mousedown', e => { e.stopPropagation(); startConnecting(n.id, 'cond-false'); });
+            div.appendChild(connFalse);
+        }
+
+        // Drag to move
+        div.addEventListener('mousedown', e => {
+            if (e.target.closest('.connector') || e.target.closest('.node-remove')) return;
+            isDragging = true;
+            dragTarget = n;
+            const rect = div.getBoundingClientRect();
+            const wrapRect = document.getElementById('canvas-wrap').getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+            div.classList.add('dragging');
+            selectNode(n.id);
+        });
+
+        div.addEventListener('click', e => {
+            if (!e.target.closest('.connector') && !e.target.closest('.node-remove')) {
+                selectNode(n.id);
+            }
+        });
+
+        canvas.appendChild(div);
+    });
+
+    // Render edges
+    renderEdges();
+}
+
+function renderEdges() {
+    const svg = document.getElementById('canvas-svg');
+    let paths = '';
+    edges.forEach(e => {
+        const fromNode = nodes.find(n => n.id === e.from);
+        const toNode = nodes.find(n => n.id === e.to);
+        if (!fromNode || !toNode) return;
+
+        const fx = fromNode.x + 100;
+        const fy = fromNode.y + 85;
+        const tx = toNode.x + 100;
+        const ty = toNode.y;
+
+        const cy = (fy + ty) / 2;
+        const pathClass = e.type === 'cond-false' ? 'active' : '';
+        paths += `<path d="M${fx},${fy} C${fx},${cy} ${tx},${cy} ${tx},${ty}" class="${pathClass}" />`;
+
+        // Label for conditional edges
+        if (e.type === 'cond-true') {
+            paths += `<text x="${(fx+tx)/2}" y="${cy-6}" fill="var(--ws)" font-size="10" text-anchor="middle">✓ 真</text>`;
+        } else if (e.type === 'cond-false') {
+            paths += `<text x="${(fx+tx)/2}" y="${cy-6}" fill="var(--wd)" font-size="10" text-anchor="middle">✗ 假</text>`;
+        }
+    });
+    svg.innerHTML = paths;
+}
+
+// ─── Canvas Events (drop, pan, etc.) ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const wrap = document.getElementById('canvas-wrap');
+    const canvas = document.getElementById('canvas');
+
+    // Drag over / drop for palette items
+    wrap.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    wrap.addEventListener('drop', e => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (!taskId || !taskRegistry[taskId]) return;
+        const wrapRect = wrap.getBoundingClientRect();
+        const x = e.clientX - wrapRect.left - 100 + wrap.scrollLeft;
+        const y = e.clientY - wrapRect.top - 30 + wrap.scrollTop;
+        createNode(taskId, Math.max(0, x), Math.max(0, y));
+    });
+
+    // Global mouse move/up for dragging nodes
+    document.addEventListener('mousemove', e => {
+        if (isDragging && dragTarget) {
+            const wrapRect = wrap.getBoundingClientRect();
+            const x = e.clientX - wrapRect.left - dragOffsetX + wrap.scrollLeft;
+            const y = e.clientY - wrapRect.top - dragOffsetY + wrap.scrollTop;
+            dragTarget.x = Math.max(0, x);
+            dragTarget.y = Math.max(0, y);
+            const el = getNodeEl(dragTarget.id);
+            if (el) { el.style.left = dragTarget.x + 'px'; el.style.top = dragTarget.y + 'px'; }
+            renderEdges();
+        }
+        // Connecting line
+        if (connectingFrom) {
+            // Visual feedback could go here
+        }
+    });
+
+    document.addEventListener('mouseup', e => {
+        if (isDragging && dragTarget) {
+            const el = getNodeEl(dragTarget.id);
+            if (el) el.classList.remove('dragging');
+            isDragging = false;
+            dragTarget = null;
+            renderEdges();
+        }
+        // Handle connecting
+        if (connectingFrom) {
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            const connector = target?.closest('.connector');
+            if (connector) {
+                const nodeEl = target.closest('.wf-node');
+                if (nodeEl && nodeEl.id !== connectingFrom.id) {
+                    edges.push({ from: connectingFrom.id, to: nodeEl.id, type: connectingFrom.type || 'sequential' });
+                    renderEdges();
+                }
+            }
+            connectingFrom = null;
+            document.body.style.cursor = '';
+        }
+    });
+
+    // Load workflow if id in URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('id')) {
+        loadWorkflow(params.get('id'));
+    }
+});
+
+// ─── Property Panel ───────────────────────────────────────────────────────
+function renderProps() {
+    const el = document.getElementById('props-body');
+    if (!selectedNodeId) {
+        el.innerHTML = '<div class="empty-state"><div class="big-icon">👈</div><div>选择节点编辑属性</div></div>';
+        return;
+    }
+    const node = nodes.find(n => n.id === selectedNodeId);
+    if (!node) return;
+    const task = taskRegistry[node.taskId];
+
+    let html = `<div class="form-group"><label>节点名称</label><input value="${node.label}" onchange="updateNodeProp('${node.id}','label',this.value)"></div>`;
+
+    // Node type
+    html += `<div class="form-group"><label>执行类型</label><select onchange="updateNodeType('${node.id}',this.value)">
+        <option value="sequential" ${node.type==='sequential'?'selected':''}>顺序执行</option>
+        <option value="parallel" ${node.type==='parallel'?'selected':''}>并行执行</option>
+        <option value="conditional" ${node.type==='conditional'?'selected':''}>条件分支</option>
+        <option value="loop" ${node.type==='loop'?'selected':''}>循环执行</option>
+    </select></div>`;
+
+    // Task specific params
+    if (task && task.params) {
+        html += `<div style="border-top:1px solid var(--panel-border);padding-top:12px;margin-top:12px;margin-bottom:12px;"><label style="font-weight:600;margin-bottom:8px;">任务参数</label></div>`;
+        task.params.forEach(p => {
+            const val = node.params[p.id] || '';
+            if (p.type === 'select') {
+                const opts = (p.options || []).map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+                html += `<div class="form-group"><label>${p.label}${p.required?' <span style="color:var(--wd)">*</span>':''}</label>
+                    <select onchange="updateNodeParam('${node.id}','${p.id}',this.value)">${opts}</select></div>`;
+            } else if (p.type === 'textarea') {
+                html += `<div class="form-group"><label>${p.label}${p.required?' <span style="color:var(--wd)">*</span>':''}</label>
+                    <textarea onchange="updateNodeParam('${node.id}','${p.id}',this.value)">${val}</textarea></div>`;
+            } else if (p.type === 'number') {
+                html += `<div class="form-group"><label>${p.label}${p.required?' <span style="color:var(--wd)">*</span>':''}</label>
+                    <input type="number" value="${val}" onchange="updateNodeParam('${node.id}','${p.id}',this.value)"></div>`;
+            } else if (p.type === 'condition_builder') {
+                html += `<div class="form-group"><label>${p.label}</label>
+                    <textarea placeholder='[{"col":"A","op":"contains","val":"keyword"}]' onchange="updateNodeParam('${node.id}','${p.id}',this.value)">${val}</textarea></div>`;
+            } else {
+                html += `<div class="form-group"><label>${p.label}${p.required?' <span style="color:var(--wd)">*</span>':''}</label>
+                    <input value="${val}" placeholder="${p.label}" onchange="updateNodeParam('${node.id}','${p.id}',this.value)"></div>`;
+            }
+        });
+    }
+
+    // Conditional config
+    if (node.type === 'conditional') {
+        html += `<div style="border-top:1px solid var(--panel-border);padding-top:12px;margin-top:12px;margin-bottom:8px;"><label style="font-weight:600;margin-bottom:8px;">条件配置</label></div>`;
+        const conds = node.conditions.length ? node.conditions : [{ field:'', op:'equals', value:'' }];
+        conds.forEach((c, i) => {
+            html += `<div class="condition-row">
+                <input value="${c.field}" placeholder="字段名" onchange="updateCondition(${i},'field',this.value, '${node.id}')">
+                <select onchange="updateCondition(${i},'op',this.value, '${node.id}')">
+                    <option value="equals" ${c.op==='equals'?'selected':''}>等于</option>
+                    <option value="contains" ${c.op==='contains'?'selected':''}>包含</option>
+                    <option value="gt" ${c.op==='gt'?'selected':''}>大于</option>
+                    <option value="lt" ${c.op==='lt'?'selected':''}>小于</option>
+                    <option value="not_empty" ${c.op==='not_empty'?'selected':''}>非空</option>
+                </select>
+                ${c.op !== 'not_empty' ? `<input value="${c.value||''}" placeholder="值" onchange="updateCondition(${i},'value',this.value,'${node.id}')">` : ''}
+                ${i > 0 ? `<button style="color:var(--wd);background:transparent;border:none;cursor:pointer;" onclick="removeCondition(${i},'${node.id}')">✕</button>` : ''}
+            </div>`;
+        });
+        html += `<button class="add-btn" onclick="addCondition('${node.id}')">+ 添加条件</button>`;
+    }
+
+    // Loop config
+    if (node.type === 'loop') {
+        html += `<div style="border-top:1px solid var(--panel-border);padding-top:12px;margin-top:12px;margin-bottom:8px;"><label style="font-weight:600;margin-bottom:8px;">循环配置</label></div>`;
+        html += `<div class="form-group"><label>循环次数</label>
+            <input type="number" value="${node.loopConfig.count||1}" min="1" onchange="updateLoopConfig('${node.id}','count',parseInt(this.value)||1)"></div>`;
+    }
+
+    el.innerHTML = html;
+}
+
+function updateNodeProp(id, key, val) {
+    const node = nodes.find(n => n.id === id);
+    if (node) { node[key] = val; }
+}
+
+function updateNodeType(id, type) {
+    const node = nodes.find(n => n.id === id);
+    if (node) { node.type = type; renderProps(); renderCanvas(); }
+}
+
+function updateNodeParam(id, key, val) {
+    const node = nodes.find(n => n.id === id);
+    if (node) node.params[key] = val;
+}
+
+function updateCondition(idx, key, val, nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+        if (!node.conditions[idx]) node.conditions[idx] = { field:'', op:'equals', value:'' };
+        node.conditions[idx][key] = val;
+    }
+}
+
+function addCondition(nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) { node.conditions.push({ field:'', op:'equals', value:'' }); renderProps(); }
+}
+
+function removeCondition(idx, nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) { node.conditions.splice(idx, 1); renderProps(); }
+}
+
+function updateLoopConfig(id, key, val) {
+    const node = nodes.find(n => n.id === id);
+    if (node) node.loopConfig[key] = val;
+}
+
+// ─── Save / Load / Export / Import ────────────────────────────────────────
+function getWorkflowData() {
+    return {
+        nodes: nodes.map(n => ({ ...n })),
+        edges: edges.map(e => ({ ...e })),
+        nextNodeId
+    };
+}
+
+function setWorkflowData(data) {
+    nodes = data.nodes || [];
+    edges = data.edges || [];
+    nextNodeId = data.nextNodeId || 1;
+    selectedNodeId = null;
+    renderCanvas();
+    renderProps();
+}
+
+async function saveWorkflow() {
+    const name = document.getElementById('editor-title').textContent.replace('✏️ ','');
+    const data = getWorkflowData();
+
+    const payload = {
+        name: wfId ? name : (document.getElementById('editor-title').textContent || '未命名工作流'),
+        description: '从编辑器创建',
+        config: { canvas: data },
+        tasks: nodes.map(n => ({
+            id: n.id,
+            type: n.type,
+            task_id: n.taskId,
+            config: n.params,
+            position: { x: n.x, y: n.y },
+            conditions: n.conditions,
+            loop_config: n.loopConfig
+        })),
+        status: 'draft'
+    };
+
+    try {
+        let r;
+        if (wfId) {
+            r = await fetch(API + '/' + wfId, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        } else {
+            r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        }
+        const d = await r.json();
+        if (d.status === 'success' || d.status === 'success' || d.workflow_id) {
+            const id = d.workflow_id || wfId;
+            if (id && !wfId) { wfId = id; window.history.replaceState(null, '', '?id=' + id); }
+            showToast('保存成功!', 'success');
+        } else {
+            showToast('保存失败: ' + (d.message || ''), 'error');
+        }
+    } catch(e) {
+        showToast('保存失败: ' + e.message, 'error');
+    }
+}
+
+async function loadWorkflow(id) {
+    try {
+        const r = await fetch(API + '/' + id);
+        const d = await r.json();
+        if (d.status !== 'success' || !d.workflow) { showToast('加载失败', 'error'); return; }
+        wfId = d.workflow.id;
+        document.getElementById('editor-title').textContent = '✏️ ' + d.workflow.name;
+
+        if (d.workflow.config && d.workflow.config.canvas) {
+            setWorkflowData(d.workflow.config.canvas);
+        } else if (d.workflow.tasks) {
+            // Convert from tasks format
+            const loadedNodes = d.workflow.tasks.map(t => ({
+                id: t.id || 'node-' + (nextNodeId++),
+                taskId: t.task_id,
+                label: taskRegistry[t.task_id]?.name?.replace(/^.{1,2}\s*/,'') || t.task_id,
+                x: t.position?.x || 100,
+                y: t.position?.y || 100,
+                type: t.type || 'sequential',
+                params: t.config || {},
+                conditions: t.conditions || [],
+                loopConfig: t.loop_config || { count: 1 }
+            }));
+            nodes = loadedNodes;
+            edges = [];
+            nextNodeId = nodes.length + 1;
+            selectedNodeId = null;
+            renderCanvas();
+            renderProps();
+        }
+    } catch(e) {
+        showToast('加载失败: ' + e.message, 'error');
+    }
+}
+
+function exportJSON() {
+    const data = getWorkflowData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (wfId || 'workflow') + '.json';
+    a.click();
+    showToast('导出成功!', 'success');
+}
+
+function showImport() {
+    document.getElementById('modal-import').style.display = 'flex';
+}
+
+function importJSON() {
+    try {
+        const data = JSON.parse(document.getElementById('import-json').value);
+        setWorkflowData(data);
+        document.getElementById('modal-import').style.display = 'none';
+        document.getElementById('import-json').value = '';
+        showToast('导入成功!', 'success');
+    } catch(e) {
+        showToast('导入失败: JSON 格式错误', 'error');
+    }
+}
+
+async function runWorkflow() {
+    if (!wfId) { showToast('请先保存工作流', 'error'); return; }
+    try {
+        const r = await fetch(API + '/' + wfId + '/execute', { method:'POST' });
+        const d = await r.json();
+        if (d.status === 'success') {
+            showToast('已开始执行! 执行ID: ' + d.execution_id, 'success');
+        } else {
+            showToast('执行失败: ' + (d.message || ''), 'error');
+        }
+    } catch(e) {
+        showToast('执行失败: ' + e.message, 'error');
+    }
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + (type || 'info') + ' show';
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+loadTaskRegistry();
+</script>
+</body>
+</html>
