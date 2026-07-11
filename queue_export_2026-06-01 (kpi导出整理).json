@@ -1,0 +1,49 @@
+{
+  "exported_at": "2026-06-01T09:07:02.927Z",
+  "version": "1.0",
+  "note": "可直接修改 params / priority 后重新导入执行",
+  "tasks": [
+    {
+      "task_id": "csv_to_excel",
+      "task_name": "批量 CSV 转 Excel (强制文本格式)",
+      "params": {
+        "out_file": "D:\\my-project\\数据\\KPI清单.xlsx",
+        "src_dir": "D:\\my-project\\数据\\KPI清单"
+      },
+      "priority": 0
+    },
+    {
+      "task_id": "filter_excel",
+      "task_name": "🔍 多条件筛选 Excel 记录",
+      "params": {
+        "cond_file": "D:\\my-project\\数据\\天翼条件限定.xlsx",
+        "out_path": "D:\\my-project\\数据\\Mid\\KPI清单-天翼.xlsx",
+        "sheet": "202603新增天翼清单",
+        "src_file": "D:\\my-project\\数据\\KPI清单.xlsx"
+      },
+      "priority": 0
+    },
+    {
+      "task_id": "filter_excel",
+      "task_name": "🔍 多条件筛选 Excel 记录",
+      "params": {
+        "cond_file": "D:\\my-project\\数据\\宽带条件限定.xlsx",
+        "out_path": "D:\\my-project\\数据\\Mid\\KPI清单-宽带.xlsx",
+        "sheet": "202603新增宽带清单",
+        "src_file": "D:\\my-project\\数据\\KPI清单.xlsx"
+      },
+      "priority": 0
+    },
+    {
+      "task_id": "concat_excel",
+      "task_name": "🔗 文件夹 Excel 内容全合并",
+      "params": {
+        "merge_mode": "分Sheet保留原名",
+        "out_file": "D:\\my-project\\数据\\Mid.xlsx",
+        "src_dir": "D:\\my-project\\数据\\Mid",
+        "start_row": "1"
+      },
+      "priority": 0
+    }
+  ]
+}

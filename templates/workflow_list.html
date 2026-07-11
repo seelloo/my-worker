@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作流管理</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        :root { --wp: #8b5cf6; --ws: #10b981; --wd: #ef4444; --ww: #f59e0b; --wi: #3b82f6; }
+        .wf-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .wf-header h2 { margin:0; }
+        .btn-create { background:var(--wp); color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:600; }
+        .wf-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+        .wf-card { background:var(--card-bg); border:1px solid var(--panel-border); border-radius:12px; padding:20px; }
+        .wf-card-title { font-size:1.1rem; font-weight:600; margin:0 0 8px; }
+        .wf-card-desc { font-size:0.85rem; color:var(--text-muted); margin-bottom:12px; }
+        .wf-card-meta { display:flex; gap:12px; font-size:0.8rem; color:var(--text-muted); margin-bottom:14px; }
+        .wf-card-actions { display:flex; gap:8px; }
+        .wf-btn { padding:6px 14px; border-radius:6px; border:1px solid var(--panel-border); cursor:pointer; font-size:0.85rem; background:var(--card-bg); color:var(--text-light); }
+        .wf-btn-run { background:var(--ws); color:#fff; border-color:var(--ws); }
+        .wf-btn-edit { background:var(--wi); color:#fff; border-color:var(--wi); }
+        .wf-status { display:inline-flex; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:500; }
+        .wf-status-draft { background:rgba(245,158,11,0.15); color:var(--ww); }
+        .wf-status-running { background:rgba(59,130,246,0.15); color:var(--wi); }
+        .wf-status-completed { background:rgba(16,185,129,0.15); color:var(--ws); }
+        .wf-status-failed { background:rgba(239,68,68,0.15); color:var(--wd); }
+        .empty-state { text-align:center; padding:60px 20px; }
+        .exec-table { width:100%; border-collapse:collapse; margin-top:20px; }
+        .exec-table th,.exec-table td { padding:10px 12px; font-size:0.85rem; border-bottom:1px solid var(--panel-border); text-align:left; }
+        .nav-tabs { display:flex; gap:4px; margin-bottom:24px; background:rgba(0,0,0,0.1); border-radius:10px; padding:4px; }
+        .nav-tab { padding:10px 20px; border-radius:8px; cursor:pointer; border:none; background:transparent; color:var(--text-muted); }
+        .nav-tab.active { background:var(--card-bg); color:var(--text-light); }
+        .tab-panel { display:none; }
+        .tab-panel.active { display:block; }
+        .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; }
+        .modal-c { background:var(--card-bg); border-radius:12px; padding:24px; min-width:400px; border:1px solid var(--panel-border); }
+        .modal-c input,.modal-c textarea { width:100%; padding:10px; margin-bottom:12px; border-radius:8px; border:1px solid var(--panel-border); background:rgba(0,0,0,0.1); color:var(--text-light); box-sizing:border-box; }
+        .modal-c textarea { min-height:120px; }
+        .modal-actions { display:flex; gap:12px; justify-content:flex-end; }
+    </style>
+</head>
+<body>
+<div class="bg-shape shape-1"></div><div class="bg-shape shape-2"></div><div class="bg-shape shape-3"></div>
+<div class="layout">
+    <header class="header glass-panel">
+        <div class="logo"><span class="icon">🔄</span><h1>工作流管理</h1></div>
+        <div class="header-actions"><a href="/" class="btn-secondary" style="text-decoration:none;padding:8px 16px;border-radius:8px;">⬅ 返回</a></div>
+    </header>
+    <div class="main-container" style="max-width:1200px;margin:0 auto;padding:20px;">
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-t="tab-wf">📋 工作流</button>
+            <button class="nav-tab" data-t="tab-exec">📊 执行记录</button>
+        </div>
+        <div class="tab-panel active" id="tab-wf">
+            <div class="wf-header"><h2>所有工作流</h2><button class="btn-create" id="btn-create">➕ 新建</button></div>
+            <div id="wf-grid" class="wf-grid"></div>
+        </div>
+        <div class="tab-panel" id="tab-exec">
+            <h2>执行记录</h2>
+            <table class="exec-table"><thead><tr><th>工作流</th><th>状态</th><th>时间</th><th>耗时</th><th>操作</th></tr></thead><tbody id="exec-tbody"></tbody></table>
+        </div>
+    </div>
+</div>
+<div class="modal-bg" id="modal-create" style="display:none;">
+    <div class="modal-c">
+        <h3>新建工作流</h3>
+        <input type="text" id="wf-name" placeholder="工作流名称">
+        <textarea id="wf-desc" placeholder="描述"></textarea>
+        <div class="modal-actions">
+            <button style="background:transparent;color:var(--text-muted);border:1px solid var(--panel-border);" onclick="document.getElementById('modal-create').style.display='none'">取消</button>
+            <button id="btn-create-confirm" style="background:var(--wp);color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;">创建</button>
+        </div>
+    </div>
+</div>
+<script>
+const API = '/api/workflows';
+function sc(s) { return {draft:'wf-status-draft',running:'wf-status-running',completed:'wf-status-completed',failed:'wf-status-failed'}[s]||''; }
+async function loadWF() {
+    const r = await fetch(API), d = await r.json();
+    const g = document.getElementById('wf-grid');
+    if (!d.workflows||!d.workflows.length) { g.innerHTML = '<div class="empty-state"><div style="font-size:3rem">🔄</div><h3>暂无工作流</h3><p>点击新建创建</p></div>'; return; }
+    g.innerHTML = d.workflows.map(w => `<div class="wf-card"><h3 class="wf-card-title">${w.name}</h3><div class="wf-card-desc">${w.description||'无描述'}</div><div class="wf-card-meta"><span>📋 ${w.task_count} 任务</span><span>🕐 ${new Date(w.updated_at).toLocaleString()}</span></div><div style="margin-bottom:12px"><span class="wf-status ${sc(w.status)}">${w.status}</span></div><div class="wf-card-actions"><button class="wf-btn wf-btn-run" onclick="runWF('${w.id}')">▶ 执行</button><button class="wf-btn wf-btn-edit" onclick="editWF('${w.id}')">✏ 编辑</button><button class="wf-btn" style="color:var(--wd)" onclick="delWF('${w.id}')">🗑 删除</button></div></div>`).join('');
+}
+async function loadExec() {
+    const r = await fetch(API+'/executions'), d = await r.json();
+    const t = document.getElementById('exec-tbody');
+    if (!d.executions||!d.executions.length) { t.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted)">暂无记录</td></tr>'; return; }
+    t.innerHTML = d.executions.map(e => `<tr><td>${e.workflow_name}</td><td><span class="wf-status ${sc(e.status)}">${e.status}</span></td><td>${e.start_time?new Date(e.start_time).toLocaleString():'-'}</td><td>${e.duration?e.duration.toFixed(2)+'s':'-'}</td><td><button class="wf-btn" onclick="viewReport('${e.id}')">📄 报告</button></td></tr>`).join('');
+}
+async function runWF(id) { if(confirm('执行此工作流？')){await fetch(API+'/'+id+'/execute',{method:'POST'});alert('已开始执行');loadExec();} }
+async function delWF(id) { if(confirm('删除此工作流？')){await fetch(API+'/'+id,{method:'DELETE'});loadWF();} }
+function editWF(id) { window.location.href='/workflow/editor?id='+id; }
+async function viewReport(id) { const r=await fetch(API+'/executions/'+id+'/report'),d=await r.json();if(d.report){const w=window.open('','_blank');w.document.write('<pre style="font-family:monospace;padding:20px">'+d.report+'</pre>');} }
+document.querySelectorAll('.nav-tab').forEach(t=>t.addEventListener('click',function(){document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));this.classList.add('active');document.getElementById(this.dataset.t).classList.add('active');if(this.dataset.t==='tab-exec')loadExec();}));
+document.getElementById('btn-create').onclick=()=>document.getElementById('modal-create').style.display='flex';
+document.getElementById('btn-create-confirm').onclick=async()=>{const n=document.getElementById('wf-name').value;if(!n){alert('请输入名称');return;}const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,description:document.getElementById('wf-desc').value,status:'draft',tasks:[]})});const d=await r.json();if(d.workflow_id){document.getElementById('modal-create').style.display='none';document.getElementById('wf-name').value='';loadWF();editWF(d.workflow_id);}else alert('失败: '+(d.message||''));};
+loadWF();
+</script>
+</body>
+</html>

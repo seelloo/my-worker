@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Engine Server v3.0 — 数据员工</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='3.0') }}">
+</head>
+<body>
+    <div class="layout">
+        <!-- 侧边栏 (Dark Theme) -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">69</div>
+                <div class="sidebar-brand">
+                    <h1>反重力</h1>
+                    <span>核心系统</span>
+                </div>
+            </div>
+            
+            <!-- 动态导航栏 -->
+            <div class="menu-container" id="sidebar-nav"></div>
+            
+            <div class="sidebar-footer">
+                <div class="progress-text">
+                    <span id="sys-status-label">当前负载</span>
+                    <strong id="sys-status-text">CPU: --% | 内存: --%</strong>
+                </div>
+                <div class="progress-bar-bg" style="margin-bottom: 6px;" title="CPU">
+                    <div class="progress-bar-fill" id="cpu-bar-fill" style="width: 0%; background: #4f46e5;"></div>
+                </div>
+                <div class="progress-bar-bg" title="内存">
+                    <div class="progress-bar-fill" id="mem-bar-fill" style="width: 0%; background: #059669;"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 (Light Theme) -->
+        <main class="content-area">
+            <!-- 顶部头 -->
+            <header class="main-header">
+                <div class="header-left">
+                    <div class="breadcrumbs">工作空间 / <span id="current-breadcrumb">首页大盘</span></div>
+                    <h2><span id="header-title-main">首页大盘</span> <span id="header-title-sub">Dashboard</span></h2>
+                </div>
+                <div class="header-right">
+                    欢迎回来，今日系统运行状态极佳。
+                </div>
+            </header>
+
+            <div class="dashboard-scroll">
+                
+                <!-- 首页大盘 Panel -->
+                <div id="panel-dashboard" class="dashboard-panel active">
+                    <!-- 顶部数据卡片 -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <span class="stat-title">功能总数</span>
+                                <span class="stat-value blue" id="stat-total-tasks">-</span>
+                                <span class="stat-badge green">+12.5% 较昨日</span>
+                            </div>
+                            <div class="stat-icon blue">📊</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <span class="stat-title">定时任务总数</span>
+                                <span class="stat-value orange" id="stat-total-schedules">-</span>
+                                <span class="stat-badge green">+18.2% 较昨日</span>
+                            </div>
+                            <div class="stat-icon orange">⏰</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-info" id="clock-container">
+                                <span class="stat-title" id="clock-date">加载中...</span>
+                                <span class="stat-value purple" id="clock-time">--:--</span>
+                                <span class="stat-badge purple" id="clock-day">稳定 系统监控中</span>
+                            </div>
+                            <div class="stat-icon purple">⏱️</div>
+                        </div>
+                    </div>
+
+                    <!-- 底部详情 -->
+                    <div class="dashboard-bottom">
+                        <!-- 实时动态列表 -->
+                        <div class="card-panel">
+                            <div class="card-header">
+                                <h3>⚡ 实时动态</h3>
+                                <a id="btn-refresh-dashboard">刷新记录</a>
+                            </div>
+                            <ul class="activity-list" id="dashboard-activity-list">
+                                <li class="activity-item">
+                                    <div class="activity-dot"></div>
+                                    <div class="activity-content">数据加载中...</div>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- 快速开始面板 -->
+                        <div class="quick-start-card">
+                            <div class="quick-icon">🤖</div>
+                            <h3>快速开始</h3>
+                            <p>点击下方按钮即刻开启新一轮的系统性能扫描与节点同步优化。</p>
+                            <button class="btn-white" onclick="document.querySelector('[data-panel=\\'tasks\\']').click()">立即运行</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 任务表单 Panel -->
+                <div id="panel-tasks" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2 id="task-panel-title">🛠️ 选择一个任务</h2>
+                        <p id="task-panel-desc">从左侧菜单选择任务以开始</p>
+                    </div>
+                    <div id="task-form-container"></div>
+                </div>
+
+                <!-- Queue Panel -->
+                <div id="panel-queue" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>📬 任务队列</h2>
+                        <p>批量任务提交、FIFO 队列处理、实时状态跟踪</p>
+                    </div>
+                    <div id="queue-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Schedules Panel -->
+                <div id="panel-schedules" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>⏰ 定时任务</h2>
+                        <p>创建和管理 Cron 定时任务与间隔执行任务</p>
+                    </div>
+                    <div id="schedules-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Logs Panel -->
+                <div id="panel-logs" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>📜 操作日志</h2>
+                        <p>查看历史任务执行记录与结果预览</p>
+                    </div>
+                    <div id="logs-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Field Selector Panel -->
+                <div id="panel-field-selector" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>📑 字段选择导出</h2>
+                        <p>从 Excel 中勾选或通过文档指定需要的字段，调整顺序后导出新文件</p>
+                    </div>
+
+                    <!-- Step 1: 文件路径 + Sheet 选择 -->
+                    <div class="fs-card" id="fs-step1">
+                        <div class="fs-step-label">① 选择源文件与工作表</div>
+                        <div class="form-group row" style="margin-bottom:12px;">
+                            <div class="col" style="flex:3;">
+                                <label>Excel 文件路径 *</label>
+                                <div class="input-with-clear">
+                                    <input type="text" id="fs-src-file" placeholder="如：D:\数据\报表.xlsx" autocomplete="off">
+                                    <button type="button" class="btn-clear" id="fs-src-clear">×</button>
+                                </div>
+                            </div>
+                            <div class="col" style="flex:1.2;">
+                                <label>工作表 (Sheet)</label>
+                                <select id="fs-sheet-select" disabled>
+                                    <option value="">— 请先填写文件路径 —</option>
+                                </select>
+                            </div>
+                            <div class="col fs-load-col">
+                                <button class="btn-load-fields" id="fs-btn-load">
+                                    <span class="btn-load-icon">⚡</span>
+                                    <span>加载字段</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: 字段选择区（双模式） -->
+                    <div class="fs-card" id="fs-step2" style="display:none;">
+                        <div class="fs-step-label">② 选择字段
+                            <span id="fs-header-count" style="font-size:0.8rem;font-weight:400;color:var(--text-muted);margin-left:8px;"></span>
+                        </div>
+                        <!-- 模式切换标签 -->
+                        <div class="fs-tabs">
+                            <button class="fs-tab active" id="fs-tab-check" data-tab="check">☑️ 勾选字段</button>
+                            <button class="fs-tab" id="fs-tab-doc" data-tab="doc">📄 文档指定</button>
+                        </div>
+
+                        <!-- 勾选模式 -->
+                        <div id="fs-pane-check" class="fs-pane">
+                            <div class="fs-search-bar">
+                                <input type="text" id="fs-search" placeholder="🔍 搜索字段名..." autocomplete="off">
+                                <div class="fs-bulk-btns">
+                                    <button class="btn-sm btn-secondary" id="fs-btn-select-all">全选</button>
+                                    <button class="btn-sm btn-secondary" id="fs-btn-select-none">取消全选</button>
+                                </div>
+                            </div>
+                            <div class="fs-checklist-wrap">
+                                <div id="fs-checklist" class="fs-checklist"></div>
+                            </div>
+                        </div>
+
+                        <!-- 文档模式 -->
+                        <div id="fs-pane-doc" class="fs-pane" style="display:none;">
+                            <div class="fs-doc-zone">
+                                <div class="fs-doc-hint">
+                                    <p>上传 <strong>TXT 文件</strong>（每行一个字段名），系统将自动按文件顺序填入已选字段。</p>
+                                    <p style="color:var(--text-muted);font-size:0.82rem;margin-top:6px;">仅列出 Excel 中存在的字段；不存在的字段将以空列代替。</p>
+                                </div>
+                                <div style="display:flex;gap:12px;align-items:center;margin-top:14px;">
+                                    <input type="text" id="fs-txt-path" placeholder="TXT 文件路径（如：D:\字段清单.txt）" style="flex:1;">
+                                    <button class="btn-secondary" id="fs-btn-import-txt" style="white-space:nowrap;">📂 导入字段</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: 已选字段排序区 -->
+                    <div class="fs-card" id="fs-step3" style="display:none;">
+                        <div class="fs-step-label">③ 已选字段顺序
+                            <span id="fs-selected-count" style="font-size:0.8rem;font-weight:400;color:var(--text-muted);margin-left:8px;"></span>
+                            <button class="btn-sm btn-secondary" id="fs-btn-clear-all" style="margin-left:auto;font-size:0.78rem;">清空全部</button>
+                        </div>
+                        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 10px;">拖拽调整顺序，点击 × 删除单个字段</p>
+                        <div id="fs-selected-list" class="fs-selected-list"></div>
+                    </div>
+
+                    <!-- Step 4: 执行区 -->
+                    <div class="fs-card" id="fs-step4" style="display:none;">
+                        <div class="fs-step-label">④ 执行导出</div>
+                        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                            <div id="fs-out-hint" style="flex:1;font-size:0.85rem;color:var(--text-muted);padding:10px 14px;background:rgba(79,70,229,0.06);border:1px solid rgba(79,70,229,0.18);border-radius:8px;min-width:260px;">
+                                输出路径：<span id="fs-out-path" style="font-weight:500;color:var(--primary);">-</span>
+                            </div>
+                            <button class="btn-primary" id="fs-btn-run" style="height:40px;padding:0 28px;white-space:nowrap;">⚡ 立即导出</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GitHub Trending Panel -->
+                <div id="panel-github" class="dashboard-panel">
+                    <div class="pane-header">
+                        <h2>🔥 GitHub Trending</h2>
+                        <p>基于 GitHub Search API，按 Stars 增长排序的热门开源项目</p>
+                    </div>
+                    <div id="github-content"><div class="empty-state">⏳ 加载中...</div></div>
+                </div>
+
+                <!-- Console -->
+                <div class="console-wrapper">
+                    <div class="console-header">
+                        <div class="mac-dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+                        <span class="console-title">Execution Logs</span>
+                        <button id="clear-log" class="btn-icon">🧹 清空</button>
+                    </div>
+                    <pre id="console-output" class="console-output"><code>等待命令执行...</code></pre>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js', v='3.0') }}"></script>
+</body>
+</html>

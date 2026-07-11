@@ -1,0 +1,13 @@
+Flask
+openpyxl
+xlrd
+easyofd
+Pillow
+pytest
+pypdf
+pdf2docx
+APScheduler
+click
+pandas
+requests
+psutil
