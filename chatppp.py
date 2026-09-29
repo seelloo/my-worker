@@ -13,7 +13,7 @@ if not api_key:
 # 创建 OpenAI 客户端实例
 # baseURL 指向阿里云的 Qwen 服务地址
 client = OpenAI(
-    api_key='sk-f9a73a36a64549ec989081f8569fa7e6',
+    api_key='sk-',
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 
